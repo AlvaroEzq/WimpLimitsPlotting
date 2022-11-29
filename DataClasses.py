@@ -2,10 +2,11 @@ import numpy as n
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 
+#N_HEAD_LINES = 6 #old
 PATH_DATA_FOLDER = "./limit_data/"
 
 def readHeaderAndDelimiter(path):
-    ''' Read in the markup part of the file. The character ':' MUST be part of header lines '''
+    ## Read in the markup part of the file. The character ':' MUST be part of header lines
     head = []
     delimiter = ','
     previousIsNumber = False
@@ -24,7 +25,7 @@ def readHeaderAndDelimiter(path):
     return head, delimiter
 
 def is_number(s):
-    """ Returns True if s string is a number. """
+    """ Returns True is string is a number. """
     try:
         float(s)
         return True
@@ -48,7 +49,7 @@ class DataClass:
         self.label_ypos  = None
         self.label_rotation = 0
         self.label_color = None #None means same color as self.color
-        
+        #self.drawopt = options
         #print('\ninit DataClass')
         #print(self.__dict__)
         ## Read in the markup part of the file. The character ':' MUST be part of header lines
@@ -131,7 +132,8 @@ class Curve (DataClass):
                 text_label,
                 color    = self.label_color,
                 fontsize = self.fontsize,
-                rotation = self.label_rotation)
+                rotation = self.label_rotation).set_rotation_mode('anchor')
+                                            #  .set_rotation_mode(None) #normal
 
 class Contour (DataClass):
     def __init__(self, filename, **options):

@@ -63,8 +63,7 @@ class WimpPlot:
                 self.savePlot(save_plotname)
                 print('done')
         
-        #Show elements of the plot
-        #print(self.ax.get_children())
+        print(self.ax.get_children())
 
 
 
@@ -105,8 +104,6 @@ class WimpPlot:
                     zorder = 0, 
                     alpha  = 0.5, 
                     lw     = 0)
-                    
-
     
 
     # ==============================================================================#
@@ -117,6 +114,7 @@ class WimpPlot:
         plt.ioff()
         plt.show()
         self.fig.canvas.mpl_disconnect(cid)
+
     def onclick(self, event):
         print('%s click: button=%d, x=%d, y=%d, xdata=%g, ydata=%gf' %
               ('double' if event.dblclick else 'single', event.button,

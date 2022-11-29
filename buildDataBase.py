@@ -1,14 +1,11 @@
 import DataClasses as dc
 
 def buildDataBase():
-    '''Add here the different experiment data.
-        Plotting options (e.g. label position, color, etc.) can be defined 
-        in the data file or in Curve initialization (second has preference over first)
-    '''
+        
     ## ====== ADD THE DIFFERENT EXPERIMENT DATA ====== ##
     # label data can be defined in the data file or in ResultCurve initialization (second has preference over first)
-    
     db = {}
+
     ## Result curves
     #db['CDEX10']    = dc.Curve("CDEX10_2018.dat")
     db['CDMSLite']   = dc.Curve("CDMSLite_2016.dat")
