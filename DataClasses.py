@@ -24,10 +24,10 @@ def readHeaderAndDelimiter(path):
     #print(delimiter)
     return head, delimiter
 
-def is_number(s):
-    """ Returns True is string is a number. """
+def is_number(string):
+    """ Returns True if string is a number. """
     try:
-        float(s)
+        float(string)
         return True
     except ValueError:
         return False
@@ -57,9 +57,14 @@ class DataClass:
         self.head, delimiter = readHeaderAndDelimiter(self.full_file_path)
         self.setParametersByHeader()
         self.setParameters(**options)
+        
+        ## Add more text to label
+        if not (self.style=='projection') and is_number(self.year):
+            self.label = f'{self.label} ({self.year:.0f})'
+            
         if self.label_color == None: #label_color has not been introduced explicitly via file header neither **options
             self.label_color = self.color
-
+            
         ## Read in the data part of the file
         data = n.loadtxt(self.full_file_path ,
             skiprows  = len(self.head)    ,
@@ -86,7 +91,7 @@ class DataClass:
                 self.__dict__.__setitem__(k,v)
             else:
                 print(f'Warning: parameter {k} is not a valid class member variable.')
-        #print(self.__dict__)
+        
 
 
 class Curve (DataClass):
@@ -105,31 +110,24 @@ class Curve (DataClass):
 
 
     def plot( self, fig, ax=None,
-                    show_label=True,
-                    style=None):
+                    show_label=True
+                    ):
         ax = ax or fig.gca()
-
-        if style == None:
-            style = self.style
         
         ## Draw the curve
         ax.plot(self.mass, self.xsec,
-            linestyle = ( '--' if (style=='projection') else style),
+            linestyle = ( '--' if (self.style=='projection') else self.style),
             linewidth = self.linewidth,
             color     = self.color,
             label     = self.label,
             zorder    = 3)
 
-        ## Add more text to label
-        text_label = self.label
-        if not (style=='projection') and self.year!='':
-            #text_label = text_label + " (" + self.year + ")"
-            text_label = f'{text_label} ({self.year:.0f})'
+       
 
         ## Draw the text
         if (show_label and self.label_xpos!=None and self.label_ypos!=None ):
             ax.text( self.label_xpos, self.label_ypos ,
-                text_label,
+                self.label,
                 color    = self.label_color,
                 fontsize = self.fontsize,
                 rotation = self.label_rotation).set_rotation_mode('anchor')
