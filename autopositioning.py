@@ -3,185 +3,44 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.interpolate import interp1d
 import numpy as np
+import shapely.geometry as sg
 
+import LabelClass as lc
 import DataClasses as dc
 import WimpPlotClass as wp
-import time
+import functionality as func
 
 REFERENCE_MAX_DISTANCE_VALUE = 1.e6
 
-def auto_fit_fontsize(text, width, height, fig=None, ax=None):
-    '''Auto-decrease the fontsize of a text object. 
-        Source: jkoal answer to https://stackoverflow.com/questions/5320205/matplotlib-text-dimensions
+def distanceToOtherCurves(wimpPlot, xy_label, rotation_label_rad, widthHeight_tuple):
 
-    Args:
-        text (matplotlib.text.Text)
-        width (float): allowed width in data coordinates
-        height (float): allowed height in data coordinates
-    '''
-    text_size = getTextWidthHeight(text, fig, ax)
-    fits_width = text_size[0] < width if width else True
-    fits_height = text_size[1] < height if height else True
-    if not all((fits_width, fits_height)):
-        text.set_fontsize(text.get_fontsize()-1)
-        auto_fit_fontsize(text, width, height, fig, ax)
+    text_shape = sg.Polygon(  func.cornersOfRectangle(xy_label, widthHeight_tuple, rotation_label_rad, rotation_in_deg = False))
 
-
-def getTextWidthHeight(text, fig=None, ax=None, force_null_rotation=False, data_coordinate_units=True):
-    '''Get the width and height of a text object in data coordinate units
-        Based on: jkoal answer to https://stackoverflow.com/questions/5320205/matplotlib-text-dimensions
-
-    Args:
-        text (matplotlib.text.Text)
-    '''
-    fig = fig or plt.gcf()
-    ax = ax or plt.gca()
-
-    if text.get_rotation()!=0:
-        print(f'Warning: text "{text.get_text()}" has rotation={text.get_rotation()}º')
-
-    if force_null_rotation:
-        if text.get_rotation()!=0:
-            print('Calculating width and height with null rotation...')
-        rot = text.get_rotation()
-        text.set_rotation(0)
-
-    # get text bounding box in figure coordinates
-    renderer = fig.canvas.get_renderer()
-    #bbox_text = text.get_window_extent(renderer=renderer) #old 123
-    bbox_text = text.get_window_extent(renderer=renderer)
-
-    # transform bounding box to data coordinates
-    #bbox_text = Bbox(ax.transData.inverted().transform(bbox_text))#old 123¿deprecated?
-    if data_coordinate_units:
-        bbox_text= bbox_text.transformed(ax.transData.inverted())
-
-    #set rotation back
-    if force_null_rotation: 
-        text.set_rotation(rot)
-
-    return (bbox_text.width, bbox_text.height)
-
-def cornersOfRectangle(xy_position, widthHeight_tuple, rotation, rotation_in_deg = False):
-    x=xy_position[0]
-    y=xy_position[1]
-
-    width = widthHeight_tuple[0]
-    height = widthHeight_tuple[1]
-    r = rotation
-    if rotation_in_deg:
-        r = r*3.1416/180
-
-    corners = [
-                (x,y),
-                (x+width*np.cos(r), y + width*np.sin(r)),
-                (x+height*np.cos(r+np.pi/2), y + height*np.sin(r+np.pi/2)),
-                (x+width*np.cos(r)+height*np.cos(r+np.pi/2),
-                y + width*np.sin(r)+height*np.sin(r+np.pi/2))
-            ]
-    return corners
-
-
-def indexOfMinimun(list_values):
-    try:
-        index_min = int(np.where(list_values==np.min(list_values))[0])
-    except (TypeError):
-        index_min = 0
+    distance, n = 0, 0
+    for s in wimpPlot.plotted_shapes:
+        if type(s) == sg.linestring.LineString:
+            d = text_shape.distance(s)
+            #if d == 0:
+            #    distance = 0
+            #    n = 1
+            #    break
+            distance += d
+            n += 1
+    return d/n
     
-    return index_min
+def intersectsAnyCurve (wimpPlot, xy_label, rotation_label_rad, widthHeight_tuple):
 
-def insideOneAnother( rectangle1, rectangle2):
-    
-    '''
-    rectangle1 and rectangle2 are a list of the 2 (or 4) points tuple(x,y)
-     that define the rectangle.
+    text_shape = sg.Polygon(  func.cornersOfRectangle(xy_label, widthHeight_tuple, rotation_label_rad, rotation_in_deg = False))
 
-    If the rectangle has no rotation, 2 oposite points or all 4 points are valid
-    If the rectangle has a certain rotation, all 4 vertices points are required
-    e.g.:
-
-             ______________________ (x5,y5)            
-            |                      |
-            |                      |
-            |           (x0,y0)    |
-            |          /\          |
-            |         /  \(x1,y1)  |
-            |  (x3,y3)\  /         |
-            |          \/(x2,y2)   |
-            |______________________| 
-          (x4,y4)
-
-          insideOneAnother( [(x0,y0),(x1,y1),(x2,y2),(x3,y3)], [(x4,y4),(x5,y5)] )
-    '''
-
-    xlim_1 = ( min([point[0] for point in rectangle1]), max([point[0] for point in rectangle1]) )
-    ylim_1 = ( min([point[1] for point in rectangle1]), max([point[1] for point in rectangle1]) )
-
-    
-    xlim_2 = ( min([point[0] for point in rectangle2]), max([point[0] for point in rectangle2]) )
-    ylim_2 = ( min([point[1] for point in rectangle2]), max([point[1] for point in rectangle2]) )
-
-    #rectagle_1 inside rectangle_2
-    if xlim_2[0] < xlim_1[0] and xlim_1[1] < xlim_2[1]:
-        if ylim_2[1] > ylim_1[1] and ylim_1[0] > ylim_2[0]:
-            return True
-    
-    #rectagle_2 inside rectangle_1
-    if xlim_1[0] < xlim_2[0] and xlim_2[1] < xlim_1[1]:
-        if ylim_1[1] > ylim_2[1] and ylim_2[0] > ylim_1[0]:
-            return True
-
+    for s in wimpPlot.plotted_shapes:
+        if type(s) == sg.linestring.LineString:
+            if s.intersects(text_shape):
+                return True
     return False
 
-def amountLabelOffCurve ( xy_label, rotation_label_rad, width_label, xy_display):
-    x_label = xy_label[0]
+def distanceToCurve_single(text_label, xy_display, margin_display=(0,0), allow_label_intersect_curve=False):
 
-    x_beginning_display = xy_display[0][0]
-
-    x_end_label = x_label+ width_label*np.cos(rotation_label_rad)
-    x_end_display = xy_display[-1][0]
-
-    amount_outside = 0
-    # label outside of curve by its ends
-    if x_end_display < x_end_label:
-        amount_outside += (x_end_label - x_end_display)/(x_end_label-x_label)
-
-    #label outside of curve by its beginning
-    if x_label < x_beginning_display:
-        amount_outside += (x_beginning_display-x_label)/(x_end_label-x_label)
-    
-    return amount_outside
-
-
-def dataToDisplayCoordinates ( x_data, y_data, ax = None):
-    ax = ax or plt.gca()
-
-    xy_display = []
-    for x,y in zip(x_data,y_data):
-        xy_display.append( (x,y) )
-    
-    xy_display = ax.transData.transform(xy_display)
-    #print(np.array(xy_display))
-    if len(xy_display) == 1:
-        return xy_display[0] #returns the tuple (x_data,y_data) in display units
-    return xy_display #returns the list of tuples (x_data,y_data) in display units
-
-#def displayToDataCoordinates ( xy_display):
-    # to be written...
-
-def getMarginDisplayCoordinates(margin, ax=None):
-    ax = ax or plt.gca()
-
-    margin_display =  (ax.get_window_extent().width, ax.get_window_extent().height) 
-    margin_display = (margin_display[0]*margin, margin_display[1]*margin) 
-    print(f'margin {margin_display}')
-
-    return margin_display
-
-
-def distanceToCurve_single(xy_label, width_label, rotation_label_rad, xy_display, margin_display=(0,0), allow_label_intersect_curve=False):
-
-    x_label, y_label = xy_label[0], xy_label[1]
+    x_label, y_label = text_label.xy
 
     sum = 0
     n=0
@@ -189,9 +48,9 @@ def distanceToCurve_single(xy_label, width_label, rotation_label_rad, xy_display
     for xy in xy_display: #runs through the curve (to run along the x-lenght of the label)
         x=xy[0] + margin_display[0]
         y=xy[1] + margin_display[1]
-        if x_label < x and x < x_label+ width_label*np.cos(rotation_label_rad): #along the x-lenght of the label
+        if x_label < x and x < x_label+ text_label.width*np.cos(text_label.rotation_rad): #along the x-lenght of the label
             x_ = x-x_label #x coordinate with label as origin
-            y_ = x_*np.tan(rotation_label_rad) + y_label #y coordinate of that point of the label
+            y_ = x_*np.tan(text_label.rotation_rad) + y_label #y coordinate of that point of the label
             #print(f'x_label={x_label}\tx={x}\twl*cos={width_label*np.cos(rotation_label)}={width_label}*cos({rotation_label})')
             if y_ < y and (not allow_label_intersect_curve):
                 n=0
@@ -209,6 +68,7 @@ def distanceToCurve ( x_curve, y_curve, rotation_curve, widthHeight_tuple, ax=No
     if width_label<=0:
         print('WARNING: width_label<=0 is not valid')
         return [np.zeros(len(x_curve[::use_every]))+REFERENCE_MAX_DISTANCE_VALUE], (0,0)
+
     ax = ax or plt.gca()
     corners_axes = [
             (ax.get_window_extent().x0, ax.get_window_extent().y0),
@@ -216,9 +76,9 @@ def distanceToCurve ( x_curve, y_curve, rotation_curve, widthHeight_tuple, ax=No
         ]
     print(corners_axes)
     
-    xy_display = dataToDisplayCoordinates(x_curve, y_curve, ax)
+    xy_display = func.dataToDisplayCoordinates(x_curve, y_curve, ax)
 
-    margin_display = getMarginDisplayCoordinates(margin, ax)
+    margin_display = func.getMarginDisplayCoordinates(margin, ax)
 
     distance_best, rotation_best = [], []
     for xy_label,  rotation_label in zip(xy_display[::use_every], rotation_curve[::use_every]): # runs through curve selecting the position and rotation of label
@@ -227,73 +87,38 @@ def distanceToCurve ( x_curve, y_curve, rotation_curve, widthHeight_tuple, ax=No
         y_label=xy_label[1] + margin_display[1]
         rotation_label = rotation_label 
 
+        text_label = lc.LabelClass( (x_label,y_label), rotation_label, widthHeight_tuple)
+
         dist, rot = [], []
         for n in range(10):
-            r = (rotation_label + 1.0*n) *3.1416/180 #deg to rad
+            r = (rotation_label + 1.0*n) #*3.1416/180 #deg to rad
+            text_label.set_rotation(r, unit_is_degrees=True)
 
-            corners_label = cornersOfRectangle((x_label,y_label), widthHeight_tuple, r, rotation_in_deg = False)
+            corners_label = text_label.make_corners()
             
-            if not insideOneAnother( corners_label, corners_axes):
+            if not func.insideOneAnother( corners_label, corners_axes):
                 #print(corners_label)
                 #print('Rectangulos fuera')
                 dist.append(REFERENCE_MAX_DISTANCE_VALUE)
                 rot.append(r)
                 continue
-            if amountLabelOffCurve( (x_label,y_label), r, width_label, xy_display) > 2./3:
+
+            if text_label.amountOffCurve(xy_display) > 2./3:
                 dist.append(REFERENCE_MAX_DISTANCE_VALUE)
                 rot.append(r)
                 continue
 
-            dist.append(distanceToCurve_single((x_label,y_label), width_label, r, xy_display,margin_display, allow_label_intersect_curve = False))
+            dist.append(distanceToCurve_single(text_label, xy_display,margin_display, allow_label_intersect_curve = False))
             rot.append(r)
         distance_best.append( np.min(dist) )
-        rotation_best.append( rot[indexOfMinimun(dist)] )
+        rotation_best.append( rot[func.indexOfMinimun(dist)] )
     
-    index_min = indexOfMinimun(distance_best)
+    index_min = func.indexOfMinimun(distance_best)
 
     #get the xy position (with margin) and rotation of point of minimun distance
     xy_min = ax.transData.inverted().transform( np.array(xy_display[::use_every][index_min])  +np.array(margin_display)    ) 
-    rotation  = rotation_best[index_min] *180./3.1416 #rad to deg 
+    rotation  = rotation_best[index_min] #*180./3.1416 #rad to deg 
     return xy_min, rotation
-   
-
-def calculateRotation(x_curve, y_curve, fig=None ,ax=None, log_xscale=False, log_yscale=False, degree_as_unit=True):
-    
-    fig = fig or plt.gcf()
-    ax = ax or plt.gca()
-    
-    factor = 1
-    if degree_as_unit:
-        factor = 180.0/3.14159265
-
-    # --- retrieve the 'abstract' size
-    fig_x, fig_y = fig.get_size_inches()
-
-    x_min, x_max = ax.get_xlim()
-    y_min, y_max = ax.get_ylim()
-    
-    # change data to log if used
-    if log_xscale:
-        x_min, x_max = np.log10((x_min,x_max))
-        x_curve = np.log10(x_curve) 
-    if log_yscale:
-        y_min, y_max = np.log10((y_min,y_max))
-        y_curve = np.log10(y_curve) 
-    
-    rotation = []
-    for i in range(len(x_curve)):
-        if i < len(x_curve)-1:
-            # --- apply the proportional conversion
-            Dx = (x_curve[i+1]-x_curve[i]) * fig_x / (x_max - x_min)
-            Dy = (y_curve[i+1]-y_curve[i] )* fig_y  / (y_max - y_min)
-            # --- convert gaps into an angle
-            r = np.arctan( Dy / Dx) *factor
-        else:
-            r = rotation[-1]  
-        rotation.append(r)
-
-    return rotation
-
 
 def bestLabelDueToParallelism( wimpPlot, curve_data = None ):
 
@@ -331,8 +156,8 @@ def bestLabelDueToParallelism( wimpPlot, curve_data = None ):
                                     num   = 1000)
     y_interpolated = interpolator(x_interpolated) 
     
-    rotation = calculateRotation(x_interpolated, y_interpolated, wimpPlot.fig, wimpPlot.ax, True,True,True)
-    wh_label = getTextWidthHeight(text_element, fig = wimpPlot.fig, ax = wimpPlot.ax, force_null_rotation=True, data_coordinate_units=False)
+    rotation = func.getRotation(x_interpolated, y_interpolated, wimpPlot.fig, wimpPlot.ax, True,True,True)
+    wh_label = func.getTextWidthHeight(text_element, fig = wimpPlot.fig, ax = wimpPlot.ax, force_null_rotation=True, data_coordinate_units=False)
     
     usePointsEvery = 50
     
