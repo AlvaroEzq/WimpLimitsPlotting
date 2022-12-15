@@ -9,6 +9,7 @@ from buildDataBase import buildDataBase
 import functionality as func
 
 PATH_FIGURE_FOLDER = './plots/'
+PREVIOUS_CLICK = None
 
 class WimpPlot:
 
@@ -25,7 +26,7 @@ class WimpPlot:
         self.x_limits=x_limits #tuple (x_min, x_max)
         self.y_limits=y_limits #tuple (y_min, y_max)
         self.DB = database #dictionary containing DataClass objects
-        self.plotted_shapes=[]
+        self.plotted_shapes=[] #for label autopositioning purposes
 
         ## ===== Define the plotting style options =====
 
@@ -70,10 +71,6 @@ class WimpPlot:
                 print('saving...')
                 self.savePlot(save_plotname)
                 print('done')
-        
-        print(self.ax.get_children())
-
-
 
     def getExcludedRegion(self):    
         ## -------- CALCULATE THE EXCLUDED PARAMETER SPACE -------- 
@@ -124,12 +121,15 @@ class WimpPlot:
             if type(child) == mpl.lines.Line2D:
                 x = child.get_data()[0]
                 y = child.get_data()[1]
-                self.plotted_shapes.append(sg.LineString( [(xx,yy) for xx,yy in zip(x,y)]  ))
+                xy = func.dataToDisplayCoordinates(x,y, self.ax)
+                self.plotted_shapes.append(sg.LineString( xy ))
+                #self.plotted_shapes.append(sg.LineString( [(xx,yy) for xx,yy in zip(x,y)]  ))
 
             if type(child) == mpl.text.Text:
-                xy = child.get_position()
-                wh = func.getTextWidthHeight(child,self.fig,self.ax,force_null_rotation=True, data_coordinate_units=False) 
-                self.plotted_shapes.append(sg.Polygon(func.cornersOfRectangle(xy, wh, child.get_rotation(), rotation_in_deg = True)))
+                if child.get_text() != '':
+                    xy = self.ax.transData.transform(child.get_position())   
+                    wh = func.getTextWidthHeight(child,self.ax,force_null_rotation=True, data_coordinate_units=False) 
+                    self.plotted_shapes.append(sg.Polygon(func.cornersOfRectangle(xy, wh, child.get_rotation(), rotation_in_deg = True)))
 
     # ==============================================================================#
     # switch to interactive mode and shows the plot on screen
@@ -141,9 +141,19 @@ class WimpPlot:
         self.fig.canvas.mpl_disconnect(cid)
 
     def onclick(self, event):
+        
         print('%s click: button=%d, x=%d, y=%d, xdata=%g, ydata=%gf' %
               ('double' if event.dblclick else 'single', event.button,
                event.x, event.y, event.xdata, event.ydata))
+        
+        #Rotation angle to help finding a suitable rotation of labels
+        global PREVIOUS_CLICK
+        if PREVIOUS_CLICK is not None:
+            print('Rotation angle: %.1f deg' 
+                %np.rad2deg(np.arctan(
+                (event.y-PREVIOUS_CLICK[1])/(event.x-PREVIOUS_CLICK[0]) ))
+                if event.x-PREVIOUS_CLICK[0]!=0 else '')
+        PREVIOUS_CLICK = (event.x, event.y)
 
     # ==============================================================================#
     # saves the plot on a file

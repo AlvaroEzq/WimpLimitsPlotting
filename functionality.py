@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np
+import shapely.geometry as sg
 
 def auto_fit_fontsize(text, width, height, fig=None, ax=None):
     '''Auto-decrease the fontsize of a text object. 
@@ -18,22 +20,24 @@ def auto_fit_fontsize(text, width, height, fig=None, ax=None):
         auto_fit_fontsize(text, width, height, fig, ax)
 
 
-def getTextWidthHeight(text, fig=None, ax=None, force_null_rotation=False, data_coordinate_units=True):
+def getTextWidthHeight(text, ax=None, force_null_rotation=False, data_coordinate_units=True):
     '''Get the width and height of a text object in data coordinate units
         Based on: jkoal answer to https://stackoverflow.com/questions/5320205/matplotlib-text-dimensions
 
     Args:
         text (matplotlib.text.Text)
+        fig is figure where text belongs.
+        ax is axis of figure where text belongs
     '''
-    fig = fig or plt.gcf()
+
     ax = ax or plt.gca()
+    fig = ax.get_figure()
 
     if text.get_rotation()!=0:
-        print(f'Warning: text "{text.get_text()}" has rotation={text.get_rotation()}º')
+        if not force_null_rotation:
+            print(f'Warning: text "{text.get_text()}" has rotation={text.get_rotation()}º and it is not being forced')
 
     if force_null_rotation:
-        if text.get_rotation()!=0:
-            print('Calculating width and height with null rotation...')
         rot = text.get_rotation()
         text.set_rotation(0)
 
@@ -74,12 +78,20 @@ def cornersOfRectangle(xy_position, widthHeight_tuple, rotation, rotation_in_deg
     corners = [
                 (x,y),
                 (x+width*np.cos(r), y + width*np.sin(r)),
-                (x+height*np.cos(r+np.pi/2), y + height*np.sin(r+np.pi/2)),
                 (x+width*np.cos(r)+height*np.cos(r+np.pi/2),
-                y + width*np.sin(r)+height*np.sin(r+np.pi/2))
+                y + width*np.sin(r)+height*np.sin(r+np.pi/2)),
+                (x+height*np.cos(r+np.pi/2), y + height*np.sin(r+np.pi/2)),
             ]
     return corners
+def cornersOfAxis(axis = None):
+    ax = axis or plt.gca()
+    corners_axes = [
+            (ax.get_window_extent().x0, ax.get_window_extent().y0),
+            (ax.get_window_extent().x1, ax.get_window_extent().y1)
+        ]
 
+    #print(f'Axis corners:\n {corners_axes}')
+    return corners_axes
 
 def indexOfMinimun(list_values):
     '''
@@ -89,6 +101,7 @@ def indexOfMinimun(list_values):
     try:
         index_min = int(np.where(list_values==np.min(list_values))[0])
     except (TypeError):
+        #index_min = None
         index_min = 0
     
     return index_min
@@ -179,8 +192,26 @@ def dataToDisplayCoordinates ( x_data, y_data, ax = None):
         return xy_display[0] #returns the tuple (x_data,y_data) in display units
     return xy_display #returns the list of tuples (x_data,y_data) in display units
 
-#def displayToDataCoordinates ( xy_display):
-    # to be written...
+def displayToDataCoordinates ( x_display, y_display, ax = None):
+    '''
+    Transform data from display coordinates to data coordinates.
+    Args:
+        x_data: list of x values or list of (x,y) tuples if y_data=None
+        y_data: list of y values (if y_data = None then x_data must be list of (x,y) tuples)
+        ax: mpl.axis.Axis in which this data is plotted
+    '''
+    ax = ax or plt.gca()
+
+    xy_data = []
+    for x,y in zip(x_display,y_display):
+        xy_data.append( (x,y) )
+    
+    xy_data = ax.transData.inverted().transform(xy_data) #ax.transData.transform(xy_display)
+    #print(np.array(xy_display))
+    if len(xy_data) == 1:
+        return xy_data[0] #returns the tuple (x_display,y_display) in display units
+    return xy_data #returns the list of tuples (x_display,y_display) in data units
+
 
 def getMarginDisplayCoordinates(margin, ax=None):
     '''
@@ -193,19 +224,38 @@ def getMarginDisplayCoordinates(margin, ax=None):
 
     margin_display =  (ax.get_window_extent().width, ax.get_window_extent().height) 
     margin_display = (margin_display[0]*margin, margin_display[1]*margin) 
-    print(f'margin {margin_display}')
+    #print(f'margin {margin_display}')
 
     return margin_display
 
+def getPointWithMargin(xy_position, height, margin_tuple, rotation=0, rotation_in_deg=True, below_curve=False ):
+    above_or_below = +1
+    if below_curve:
+        above_or_below = -1
+    
+    rot_unit_factor = 1
+    if rotation_in_deg:
+        rot_unit_factor = 3.1416/180
 
-def getRotation(x_curve, y_curve, fig=None ,ax=None, log_xscale=False, log_yscale=False, degree_as_unit=True):
+    x_position=xy_position[0] + above_or_below*margin_tuple[0]*2./3
+    y_position=xy_position[1] + above_or_below*margin_tuple[1]
+    if below_curve: #(x,y) is position of bottom-left corner (when label has null rotation)
+        #x_position = x_position - height*np.sin(rotation*rot_unit_factor) 
+        y_position = y_position - height*0.67#*np.cos(rotation*rot_unit_factor)
+
+    return (x_position, y_position)
+
+def getRotation(x_curve, y_curve, fig=None ,ax=None, degree_as_unit=True):
     '''
     Get rotation (tangent of slope) along the data curve in display coordinates
     '''
     
     fig = fig or plt.gcf()
     ax = ax or plt.gca()
-    
+    if fig is not ax.get_figure():
+        print('WARNING: fig is not ax.get_figure() in getRotation function')
+        fig = ax.get_figure()
+
     factor = 1
     if degree_as_unit:
         factor = 180.0/3.14159265
@@ -217,10 +267,11 @@ def getRotation(x_curve, y_curve, fig=None ,ax=None, log_xscale=False, log_yscal
     y_min, y_max = ax.get_ylim()
     
     # change data to log if used
-    if log_xscale:
+    if ax.get_xscale() == 'log':
         x_min, x_max = np.log10((x_min,x_max))
         x_curve = np.log10(x_curve) 
-    if log_yscale:
+
+    if ax.get_yscale() == 'log':
         y_min, y_max = np.log10((y_min,y_max))
         y_curve = np.log10(y_curve) 
     
@@ -232,8 +283,72 @@ def getRotation(x_curve, y_curve, fig=None ,ax=None, log_xscale=False, log_yscal
             Dy = (y_curve[i+1]-y_curve[i] )* fig_y  / (y_max - y_min)
             # --- convert gaps into an angle
             r = np.arctan( Dy / Dx) *factor
+            #print(f'Dx= {Dx}\t= {(x_curve[i+1]-x_curve[i])}\t*\t{fig_x / (x_max - x_min)}')
+            #print(f'Dx={Dx}/\tDy= {Dy}\t= {(y_curve[i+1]-y_curve[i])}\t*\t{fig_y / (y_max - y_min)}')
         else:
             r = rotation[-1]  
         rotation.append(r)
 
     return rotation
+
+'''#Fancy??
+def intersectsAnyCurve (wimpPlot, xy_label, rotation_label_rad, widthHeight_tuple, include_text_labels=False):
+
+    text_shape = sg.Polygon(  cornersOfRectangle(xy_label, widthHeight_tuple, rotation_label_rad, rotation_in_deg = False))
+
+    for s in wimpPlot.plotted_shapes:
+        if type(s) == sg.linestring.LineString or (type(s) == sg.polygon.Polygon and include_text_labels):
+            if s.intersects(text_shape):
+                return True
+    return False
+'''
+
+def intersectsAnyCurve (wimpPlot, xy_label, rotation_label_rad, widthHeight_tuple):
+
+    text_shape = sg.Polygon(  cornersOfRectangle(xy_label, widthHeight_tuple, rotation_label_rad, rotation_in_deg = False))
+
+    for s in wimpPlot.plotted_shapes:
+        if type(s) == sg.linestring.LineString:
+            if s.intersects(text_shape):
+                return True
+    return False
+def intersectsAnyCurveOrText (wimpPlot, xy_label, rotation_label_rad, widthHeight_tuple):
+
+    text_shape = sg.Polygon(  cornersOfRectangle(xy_label, widthHeight_tuple, rotation_label_rad, rotation_in_deg = False))
+
+    for s in wimpPlot.plotted_shapes:
+        if type(s) == sg.linestring.LineString or type(s) == sg.polygon.Polygon:
+            if s.intersects(text_shape):
+                return True
+    return False
+
+def deleteTextLabelFromPlot(wimpPlot, label):
+    #label can be the key of wimpPlot.DB or the label str
+    #clear the mpl.text.Text of labels in list_labels before autopositioning 
+    item = None
+    for k,v in wimpPlot.DB.items():
+        if k == label or v.label == label:
+            item = v
+            break
+    for child in wimpPlot.ax.get_children():
+        if type(child) == mpl.text.Text:
+            if child.get_text() == item.label:
+                mpl.artist.Artist.remove(child)
+    
+    return item
+
+def findTextObjectOnAxis(ax = None, text_str='', full_coincidence_of_str=True):
+    ax = ax or plt.gca()
+
+    text_element = None
+    for child in ax.get_children():
+        if type(child) == mpl.text.Text:
+            if (child.get_text() == text_str or 
+            ((text_str in child.get_text() or child.get_text() in text_str)
+              and child.get_text() != ''
+              and not full_coincidence_of_str)
+            ):
+                text_element = child
+    return text_element
+    
+
