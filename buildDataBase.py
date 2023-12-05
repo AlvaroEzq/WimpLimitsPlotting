@@ -10,25 +10,37 @@ def buildDataBase():
     
     db = {}
     ## Result curves
+
     #db['CDEX10']    = dc.Curve("CDEX10_2018.dat")
-    db['CDMSLite']   = dc.Curve("CDMSLite_2016.dat")
+    db['CDMSLite']   = dc.Curve("CDMSLite_2016.dat", label ="CDMSLite\n")
+
     db['CRESSTII']   = dc.Curve("CRESSTII_2015.dat", label='CRESST-II\n(2015)',label_xpos=0.27)
     #db['CRESSTIII']  = dc.Curve("CRESSTIII_2017.dat")
     db['CRESSTIII_2019']  = dc.Curve("CRESTIII_2019.txt",label='CRESST-III\n(2019)', label_xpos=0.2, label_ypos=1.35e-35)
     #db['CRESSTsrf'] = dc.Curve("CRESSTsurface_2017.dat")
+
     #db['DAMIC100']  = dc.Curve("DAMIC_SNOLAB_2016.dat")
-    db['DAMIC2020']  = dc.Curve("DAMIC_2020.dat", label_xpos=4.2, label_ypos=1.2e-40, label_rotation= -10)
-    db['DarkSide']   = dc.Curve("DarkSide50_S2only_2018.dat", label_xpos=1.45, label_ypos=2.4e-41, label_rotation= -15)
+    db['DAMIC2020']  = dc.Curve("DAMIC_2020.dat",label='DAMIC\n', label_xpos=0.86, label_ypos=1.2e-37)
+
+    #db['DarkSide']   = dc.Curve("DarkSide50_S2only_2018.dat", label_xpos=8.54, label_ypos=4.5e-43, label_rotation=0)#label_xpos=1.75, label_ypos=3.2e-42, label_rotation=-15
+    db['DarkSide2022']   = dc.Curve("DarkSide50_2022.dat", label = "DarkSide50\n")
+
     #db['DEAP3600']   = dc.Curve("DEAP3600_2019.dat")
     #db['LUX']       = dc.Curve("LUX_completeExposure_2016.dat")
-    db['NEWSG']      = dc.Curve("NEWS_G_2018.dat", label_xpos=4, label_ypos=6.5e-39)
+
+    db['NEWSG']      = dc.Curve("NEWS_G_2018.dat", label_xpos=6.1, label_ypos=5e-39)
+
     #db['PANDAX']    = dc.Curve("PandaX_2017.dat")
-    db['PICO_C3F8']  = dc.Curve("PICO_C3F8_2017.dat")
-    db['PICO_CF3I']  = dc.Curve("PICO_CF3I_2015.dat", label_xpos=7)
+    db['PANDAX4T']   = dc.Curve("PandaX-4T_2022.dat", label_xpos=3.15, label_ypos=1e-45, label_rotation= -45)
+
+    db['PICO_C3F8']  = dc.Curve("PICO_C3F8_2017.dat", label = 'PICO\nC3F8\n', label_xpos=2.5, label_ypos=1.6e-38 )
+    #db['PICO_CF3I']  = dc.Curve("PICO_CF3I_2015.dat", label_xpos=7)
+
     #db['X1T_MIG']    = dc.Curve("X1T_MIGDAL_2020.dat", style = 'projection', label='XENON1T\nMigdal', label_xpos=1.02, label_ypos=1.2e-40)
-    db['X1T_MIG']    = dc.Curve("X1T_MIGDAL_2020.dat", style = 'projection', label_xpos=0.75, label_ypos=4.55e-39,label_rotation= -22 )
-    db['XENON1T']    = dc.Curve("XENON1T_2018.dat", label_xpos=5.8, label_ypos=4.5e-45, label_rotation= -45)
-    db['XENON1T2']   = dc.Curve("XENON1T_lowmass.dat", label_xpos=6.1, label_ypos=5.8e-44, label_rotation= -30)
+    #db['X1T_MIG']    = dc.Curve("X1T_MIGDAL_2020.dat", style = 'projection', label_xpos=0.75, label_ypos=4.55e-39,label_rotation= -22 )
+    db['XENON1T']    = dc.Curve("XENON1T_2018.dat", label_xpos=8., label_ypos=1e-46, label_rotation= -35)
+    #db['XENON1T2']   = dc.Curve("XENON1T_lowmass.dat", label_xpos=5.6, label_ypos=2.6e-45, label_rotation= -30)
+    db['XENON1T2021'] = dc.Curve("XENON1T_2021.dat", label_xpos=4.6, label_ypos=4.9e-44)
     #db['XENON100']  = dc.Curve("XENON100S2_2016.dat")
     #db['XMASS']     = dc.Curve("XMASS_2018.dat")
 
