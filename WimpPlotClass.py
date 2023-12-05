@@ -5,6 +5,7 @@ import DataClasses as dc
 from buildDataBase import buildDataBase
 
 PATH_FIGURE_FOLDER = './plots/'
+PREVIOUS_CLICK = None
 
 class WimpPlot:
 
@@ -122,13 +123,23 @@ class WimpPlot:
               ('double' if event.dblclick else 'single', event.button,
                event.x, event.y, event.xdata, event.ydata))
 
+        #Rotation angle to help finding a suitable rotation of labels
+        global PREVIOUS_CLICK
+        if PREVIOUS_CLICK is not None:
+            print('Rotation angle: %.1f deg'
+                %np.rad2deg(np.arctan(
+                (event.y-PREVIOUS_CLICK[1])/(event.x-PREVIOUS_CLICK[0]) ))
+                if event.x-PREVIOUS_CLICK[0]!=0 else '')
+        PREVIOUS_CLICK = (event.x, event.y)
+
     # ==============================================================================#
     # saves the plot on a file
     #
     def savePlot(self, plotname):
         filename = PATH_FIGURE_FOLDER + plotname
         
-        if not (plotname.endswith('.pdf') or plotname.endswith('.png')):
+        if not (plotname.endswith('.pdf') or plotname.endswith('.png') or
+                plotname.endswith('.svg')):
             filename = filename + '.pdf'
        
         try:
