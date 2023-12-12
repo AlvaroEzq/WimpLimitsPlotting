@@ -11,6 +11,8 @@ def readHeaderAndDelimiter(path):
     previousIsNumber = False
     with open(path) as file:
         for line in file:
+            if line[0]=='#':
+                continue
             if ':' in line:
                 head.append( line.strip().replace(": ",":") )
             else:
