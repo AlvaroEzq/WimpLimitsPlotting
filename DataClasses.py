@@ -1,11 +1,14 @@
 import numpy as n
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
+import LabelClass as lc
+import functionality as func
 PATH_DATA_FOLDER = "./limit_data/"
 
 def readHeaderAndDelimiter(path):
-    ''' Read in the markup part of the file. The character ':' MUST be part of header lines '''
+    ## Read in the markup part of the file. The character ':' MUST be part of header lines
     head = []
     delimiter = ','
     previousIsNumber = False
@@ -25,10 +28,10 @@ def readHeaderAndDelimiter(path):
     #print(delimiter)
     return head, delimiter
 
-def is_number(s):
-    """ Returns True if s string is a number. """
+def is_number(string):
+    """ Returns True if string is a number. """
     try:
-        float(s)
+        float(string)
         return True
     except ValueError:
         return False
@@ -48,9 +51,11 @@ class DataClass:
         self.label  = ''
         self.label_xpos  = None
         self.label_ypos  = None
-        self.label_rotation = 0
+        self.label_rotation = 0 #degrees
         self.label_color = None #None means same color as self.color
-        
+        self.Label = None #If None means that label is not plotted
+
+        #self.drawopt = options
         #print('\ninit DataClass')
         #print(self.__dict__)
         ## Read in the markup part of the file. The character ':' MUST be part of header lines
@@ -58,9 +63,14 @@ class DataClass:
         self.head, delimiter = readHeaderAndDelimiter(self.full_file_path)
         self.setParametersByHeader()
         self.setParameters(**options)
+        
+        ## Add more text to label
+        if not (self.style=='projection') and is_number(self.year):
+            self.label = f'{self.label} ({self.year:.0f})'
+            
         if self.label_color == None: #label_color has not been introduced explicitly via file header neither **options
             self.label_color = self.color
-
+            
         ## Read in the data part of the file
         data = n.loadtxt(self.full_file_path ,
             skiprows  = len(self.head)    ,
@@ -87,8 +97,61 @@ class DataClass:
                 self.__dict__.__setitem__(k,v)
             else:
                 print(f'Warning: parameter {k} is not a valid class member variable.')
-        #print(self.__dict__)
+    
+    def set_Label(self, ax=None, text_mpl_element=None ):
+        if ax is None:
+            try:
+                ax = self.Label.ax
+            except (AttributeError):
+                print('Warning: ax parameter is not given in first set_Label. Using plt.gca()')
+                ax = plt.gca()
+                
+        if text_mpl_element is None:
+            text_mpl_element = func.findTextObjectOnAxis(ax, self.label, full_coincidence_of_str=True)
+        
+        if text_mpl_element is None:
+            self.Label = None
+            return None
 
+        wh = func.getTextWidthHeight(text_mpl_element, ax, force_null_rotation=True,
+            data_coordinate_units=False)
+        lbl = lc.LabelClass((self.label_xpos, self.label_ypos),
+              self.label_rotation, wh, axis = ax,
+               xy_curve=[(x,y) for x,y in zip(self.mass,self.xsec)],
+               xy_in_display_coordinates=False,
+                rotation_in_deg=True  
+                )
+        self.Label = lbl
+        
+        if text_mpl_element != func.findTextObjectOnAxis(ax, self.label, full_coincidence_of_str=True):
+            print(f'Warning: set_Label has been called but the Label is not found in plot axis: {ax}')
+
+        return lbl
+
+    def plot_label(self, ax = None):
+        ax = ax or plt.gca()
+        
+        ## Draw the text
+        txt = ax.text( self.label_xpos, self.label_ypos ,
+            self.label,
+            color    = self.label_color,
+            fontsize = self.fontsize,
+            rotation = self.label_rotation)
+        txt.set_rotation_mode('anchor')#.set_rotation_mode(None) #normal
+
+        self.set_Label(ax, txt) 
+        
+        return txt 
+
+    def unplot_label(self, ax = None):
+        ax = ax or plt.gca()
+
+        txt = func.findTextObjectOnAxis(ax, self.label)
+        if txt is not None:
+            mpl.artist.Artist.remove(txt)
+            self.Label = None
+            return True
+        return False
 
 class Curve (DataClass):
     def __init__(self, filename, **options):
@@ -105,35 +168,24 @@ class Curve (DataClass):
         #print(self.__dict__)
 
 
-    def plot( self, fig, ax=None,
-                    show_label=True,
-                    style=None):
+    def plot( self, fig=None, ax=None,
+                    show_label=True
+                    ):
+        
+        fig = fig or plt.gcf()
         ax = ax or fig.gca()
-
-        if style == None:
-            style = self.style
         
         ## Draw the curve
         ax.plot(self.mass, self.xsec,
-            linestyle = ( '--' if (style=='projection') else style),
+            linestyle = ( '--' if (self.style=='projection') else self.style),
             linewidth = self.linewidth,
             color     = self.color,
             label     = self.label,
             zorder    = 3)
-
-        ## Add more text to label
-        text_label = self.label
-        if not (style=='projection') and self.year!='':
-            #text_label = text_label + " (" + self.year + ")"
-            text_label = f'{text_label} ({self.year:.0f})'
-
-        ## Draw the text
         if (show_label and self.label_xpos!=None and self.label_ypos!=None ):
-            ax.text( self.label_xpos, self.label_ypos ,
-                text_label,
-                color    = self.label_color,
-                fontsize = self.fontsize,
-                rotation = self.label_rotation)
+            self.plot_label(ax)
+       
+    
 
 class Contour (DataClass):
     def __init__(self, filename, **options):
@@ -166,11 +218,7 @@ class Contour (DataClass):
 
         ## Draw the text
         if (show_label and self.label_xpos!=None and self.label_ypos!=None ):
-            ax.text( self.label_xpos, self.label_ypos ,
-                self.label,
-                color    = self.label_color,
-                fontsize = self.fontsize,
-                rotation = self.label_rotation)
+            self.plot_label(ax)
 
 
 
@@ -211,11 +259,7 @@ class NeutrinoFog (DataClass):
 
         ## Draw the text
         if (show_label and self.label_xpos!=None and self.label_ypos!=None ):
-            ax.text( self.label_xpos, self.label_ypos ,
-                self.label,
-                color    = self.label_color,
-                fontsize = self.fontsize,
-                rotation = self.label_rotation)
+            self.plot_label(ax)
 
 
 
